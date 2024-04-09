@@ -1,0 +1,64 @@
+version: "3.7"
+
+networks:
+  redis-network:
+    driver: bridge
+
+services:
+  redis-server:
+    container_name: redis-server
+    image: redis/redis-stack:latest
+    restart: unless-stopped
+    ports:
+      - "6379:6379"
+    networks:
+      - redis-network
+    volumes:
+      - ./volume:/data
+    deploy:
+      resources:
+        limits:
+          cpus: "1"
+          memory: "2048MB"
+
+  producer:
+    container_name: go-producer
+    build:
+      context: .
+      dockerfile: ./cmd/producer/Dockerfile
+    restart: unless-stopped
+    depends_on:
+      - redis-server
+    networks:
+      - redis-network
+    environment:
+      - REDIS_ADDR=redis-server
+      - REDIS_PORT=6379
+      - PROD_ID=P#01
+      - STREAM_NAME=log-stream
+    deploy:
+      resources:
+        limits:
+          cpus: "0.5"
+          memory: "512MB"
+
+  consumer:
+    container_name: go-consumer
+    build:
+      context: .
+      dockerfile: ./cmd/consumer/Dockerfile
+    restart: unless-stopped
+    depends_on:
+      - redis-server
+    networks:
+      - redis-network
+    environment:
+      - REDIS_ADDR=redis-server
+      - REDIS_PORT=6379
+      - CONS_ID=C#01
+      - STREAM_NAME=log-stream
+    deploy:
+      resources:
+        limits:
+          cpus: "0.5"
+          memory: "512MB"
